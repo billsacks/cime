@@ -20,6 +20,7 @@ class LII(SystemTestsCompareTwo):
         SystemTestsCompareTwo.__init__(self, case,
                                        two_builds_for_sharedlib = False,
                                        two_builds_for_model = False,
+                                       runs_have_different_pe_settings = False,
                                        run_two_suffix = 'interp',
                                        run_one_description = 'use_init_interp set to false',
                                        run_two_description = 'use_init_interp set to true')

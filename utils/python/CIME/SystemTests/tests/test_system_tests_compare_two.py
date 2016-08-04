@@ -70,6 +70,9 @@ def get_call_methods(calls):
 
 METHOD_run = "_run"
 METHOD_component_compare_test = "_component_compare_test"
+METHOD_stage_saved_pes_file = "_stage_saved_pes_file"
+METHOD_stage_saved_build_files = "_stage_saved_build_files"
+METHOD_load_staged_xml_files = "_load_staged_xml_files"
 METHOD_run_common_setup = "_run_common_setup"
 METHOD_run_one_setup = "_run_one_setup"
 METHOD_run_two_setup = "_run_two_setup"
@@ -98,6 +101,9 @@ METHOD_run_two_setup = "_run_two_setup"
 
 class SystemTestsCompareTwoFake(SystemTestsCompareTwo):
     def __init__(self,
+                 two_builds_for_sharedlib = False,
+                 two_builds_for_model = False,
+                 runs_have_different_pe_settings = False,
                  run_one_suffix = "base",
                  run_two_suffix = "test",
                  run_one_should_pass = True,
@@ -110,6 +116,12 @@ class SystemTestsCompareTwoFake(SystemTestsCompareTwo):
         to this method:
 
         Args:
+            two_builds_for_sharedlib (bool, optional): Option passed to
+                SystemTestsCompareTwo.__init__. Defaults to False.
+            two_builds_for_model (bool, optional): Option passed to
+                SystemTestsCompareTwo.__init__. Defaults to False.
+            runs_have_different_pe_settings (bool, optional): Option passed to
+                SystemTestsCompareTwo.__init__. Defaults to False.
             run_one_suffix (str, optional): Suffix used for the first run. Defaults to 'base'.
             run_two_suffix (str, optional): Suffix used for the second run. Defaults to 'test'.
             run_one_should_pass (bool, optional): Whether the _run method should
@@ -130,11 +142,13 @@ class SystemTestsCompareTwoFake(SystemTestsCompareTwo):
         assert(run_one_suffix == 'base')
 
         case = CaseStub()
-        SystemTestsCompareTwo.__init__(self,
-                                       case,
-                                       two_builds_for_sharedlib = False,
-                                       two_builds_for_model = False,
-                                       run_two_suffix = run_two_suffix)
+        SystemTestsCompareTwo.__init__(
+            self,
+            case,
+            two_builds_for_sharedlib = two_builds_for_sharedlib,
+            two_builds_for_model = two_builds_for_model,
+            runs_have_different_pe_settings = runs_have_different_pe_settings,
+            run_two_suffix = run_two_suffix)
 
         self._run_pass_suffixes = []
         if (run_one_should_pass):
@@ -196,6 +210,15 @@ class SystemTestsCompareTwoFake(SystemTestsCompareTwo):
 
         return success
 
+    def _stage_saved_pes_file(self, suffix):
+        self.log.append(Call(METHOD_stage_saved_pes_file, {'suffix': suffix}))
+
+    def _stage_saved_build_files(self, suffix):
+        self.log.append(Call(METHOD_stage_saved_build_files, {'suffix': suffix}))
+
+    def _load_staged_xml_files(self, modified_pes):
+        self.log.append(Call(METHOD_load_staged_xml_files, {'modified_pes': modified_pes}))
+
     # ------------------------------------------------------------------------
     # Fake implementations of methods that are typically provided by the
     # individual test
@@ -221,9 +244,10 @@ class TestSystemTestsCompareTwo(unittest.TestCase):
     # Tests of passing test cases
     # ------------------------------------------------------------------------
 
-    def test_no_failures_call_sequence(self):
+    def test_no_failures_one_build_call_sequence(self):
         # Ensure that the sequencing of calls to internal methods is correct
-        # when a test is run with no failures
+        # when a single-build test (with only a single PE layout) is run with no
+        # failures
 
         # Setup
         run_one_suffix = 'base'
@@ -242,6 +266,69 @@ class TestSystemTestsCompareTwo(unittest.TestCase):
             Call(METHOD_run, {'suffix': run_one_suffix}),
             Call(METHOD_run_common_setup, {}),
             Call(METHOD_run_two_setup, {}),
+            Call(METHOD_run, {'suffix': run_two_suffix}),
+            Call(METHOD_component_compare_test,
+                 {'suffix1': run_one_suffix, 'suffix2': run_two_suffix})]
+        self.assertEqual(expected_calls, mytest.log)
+
+
+    def test_no_failures_two_builds_call_sequence(self):
+        # Ensure that the sequencing of calls to internal methods is correct
+        # when a two-build test is run with no failures
+
+        # Setup
+        run_one_suffix = 'base'
+        run_two_suffix = 'run2'
+        mytest = SystemTestsCompareTwoFake(
+            two_builds_for_model = True,
+            run_one_suffix = run_one_suffix,
+            run_two_suffix = run_two_suffix)
+
+        # Exercise
+        mytest.run()
+
+        # Verify
+        expected_calls = [
+            Call(METHOD_run_common_setup, {}),
+            Call(METHOD_run_one_setup, {}),
+            Call(METHOD_stage_saved_build_files, {'suffix': run_one_suffix}),
+            Call(METHOD_load_staged_xml_files, {'modified_pes': False}),
+            Call(METHOD_run, {'suffix': run_one_suffix}),
+            Call(METHOD_run_common_setup, {}),
+            Call(METHOD_run_two_setup, {}),
+            Call(METHOD_stage_saved_build_files, {'suffix': run_two_suffix}),
+            Call(METHOD_load_staged_xml_files, {'modified_pes': False}),
+            Call(METHOD_run, {'suffix': run_two_suffix}),
+            Call(METHOD_component_compare_test,
+                 {'suffix1': run_one_suffix, 'suffix2': run_two_suffix})]
+        self.assertEqual(expected_calls, mytest.log)
+
+    def test_no_failures_different_pes_call_sequence(self):
+        # Ensure that the sequencing of calls to internal methods is correct
+        # when a test with different PE layouts is run with no failures
+
+        # Setup
+        run_one_suffix = 'base'
+        run_two_suffix = 'run2'
+        mytest = SystemTestsCompareTwoFake(
+            runs_have_different_pe_settings = True,
+            run_one_suffix = run_one_suffix,
+            run_two_suffix = run_two_suffix)
+
+        # Exercise
+        mytest.run()
+
+        # Verify
+        expected_calls = [
+            Call(METHOD_run_common_setup, {}),
+            Call(METHOD_run_one_setup, {}),
+            Call(METHOD_stage_saved_pes_file, {'suffix': run_one_suffix}),
+            Call(METHOD_load_staged_xml_files, {'modified_pes': True}),
+            Call(METHOD_run, {'suffix': run_one_suffix}),
+            Call(METHOD_run_common_setup, {}),
+            Call(METHOD_run_two_setup, {}),
+            Call(METHOD_stage_saved_pes_file, {'suffix': run_two_suffix}),
+            Call(METHOD_load_staged_xml_files, {'modified_pes': True}),
             Call(METHOD_run, {'suffix': run_two_suffix}),
             Call(METHOD_component_compare_test,
                  {'suffix1': run_one_suffix, 'suffix2': run_two_suffix})]

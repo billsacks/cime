@@ -4,7 +4,7 @@ Base class for CIME system tests
 import shutil, glob, gzip, time
 from CIME.XML.standard_module_setup import *
 from CIME.XML.env_run import EnvRun
-from CIME.utils import append_status
+from CIME.utils import append_status, get_model
 from CIME.case_setup import case_setup
 from CIME.case_run import case_run
 from CIME.case_st_archive import case_st_archive
@@ -102,6 +102,117 @@ class SystemTestsCommon(object):
         """
         self._case = case
         self._caseroot = case.get_value("CASEROOT")
+
+    def _stage_saved_pes_file(self, suffix):
+        """
+        For tests with different PE layouts in each run: Copy saved
+        env_mach_pes.xml file with the given suffix to the plain (no-suffix)
+        path.
+
+        This is meant to be called during the run phase, and assumes that the
+        necessary files have already been saved via calls to save_xml_file,
+        using the same suffix.
+
+        After this is called, the caller is responsible for calling
+        self._case.read_xml() to read in the restored env_mach_pes settings, and
+        then case_setup(self._case, test_mode=True, reset=True)
+
+        Args:
+            suffix (str): Suffix for this run; should match a value of suffix
+            used in an earlier call to save_xml_file
+        """
+        stage_saved_xml_file(caseroot=self._caseroot, xml_file='env_mach_pes', suffix=suffix)
+
+    def _save_build_files(self, suffix):
+        """
+        For tests with multiple executables: Save any build files that will be
+        needed in the run phase. This includes the executable and the
+        env_build.xml file.
+
+        This is meant to be called during the build phase, after each build has
+        completed.
+
+        Args:
+            suffix (str): Suffix for this build
+        """
+        self._save_executable(suffix)
+        save_xml_file(caseroot=self._caseroot, xml_file='env_build', suffix=suffix)
+
+    def _stage_saved_build_files(self, suffix):
+        """
+        For tests with multiple executables: Copy saved build files with the
+        given suffix to the plain (no-suffix) path.
+
+        This is meant to be called during the run phase, and assumes that the
+        necessary files have already been saved with _save_build_files, using
+        the same suffix.
+
+        After this is called, the caller is responsible for calling
+        self._case.read_xml() to read in the restored env_build settings.
+
+        Args:
+            suffix (str): Suffix for this run; should match a value of suffix
+            used in a call to _save_build_files.
+        """
+        self._stage_saved_executable(suffix)
+        stage_saved_xml_file(caseroot=self._caseroot, xml_file='env_build', suffix=suffix)
+
+    def _save_executable(self, suffix):
+        """
+        For tests with multiple executables: Copy the plain (no-suffix)
+        executable to a saved executable with the given suffix.
+
+        This is meant to be called during the build phase, after each build has
+        completed.
+
+        Args:
+            suffix (str)
+        """
+        exeroot = self._case.get_value("EXEROOT")
+        cime_model = get_model()
+        exefile = os.path.join(exeroot,"%s.exe"%(cime_model))
+        expect(os.path.isfile(exefile),
+               "No executable for suffix %s"%(suffix))
+        exefile_with_suffix = os.path.join(exeroot,"%s.%s.exe"%(cime_model,suffix))
+        if (os.path.isfile(exefile_with_suffix)):
+            os.remove(exefile_with_suffix)
+        shutil.move(exefile, exefile_with_suffix)
+
+    def _stage_saved_executable(self, suffix):
+        """
+        For tests with multiple executables: Copy the executable with the given
+        suffix to the plain (no-suffix) executable path.
+
+        This is meant to be called during the run phase, and assumes that the
+        necessary executables have already been saved with _save_executable.
+
+        Args:
+            suffix (str)
+        """
+        exeroot = self._case.get_value("EXEROOT")
+        cime_model = get_model()
+        exefile = os.path.join(exeroot,"%s.exe"%(cime_model))
+        exefile_with_suffix = os.path.join(exeroot,"%s.%s.exe"%(cime_model,suffix))
+        if (os.path.isfile(exefile)):
+            os.remove(exefile)
+        shutil.copy(exefile_with_suffix, exefile)
+
+    def _load_staged_xml_files(self, modified_pes):
+        """
+        This should be called after staging one or more saved xml files, in
+        order to reload them into the case object.
+
+        If modified_pes is True, then this also calls case_setup
+
+        Args:
+            modified_pes (bool): Set this to True if env_mach_pes.xml is among
+                the files that have been staged, False otherwise. If this is
+                True, then this function will also call case_setup in order to
+                propagate the changed PE settings appropriately.
+        """
+        self._case.read_xml()
+        if modified_pes:
+            case_setup(self._case, test_mode=True, reset=True)
 
     def _run(self, suffix="base", coupler_log_path=None, st_archive=False):
         try:

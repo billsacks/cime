@@ -30,19 +30,38 @@ any work to be done in these phases:
 (1) _pre_build
     This method will be called immediately before the build. This can contain
     work like copying user_nl files to some saved location
+
+(2) _adjust_pes_for_run_one
+
+(3) _adjust_pes_for_run_two
+
+(4) _build_one_setup
+    This method is used for tests that have either two_builds_for_sharedlib
+    and/or two_builds_for_model True. This method will be called immediately
+    before the first build.
+
+(5) _build_two_setup
+    This method is used for tests that have either two_builds_for_sharedlib
+    and/or two_builds_for_model True. This method will be called immediately
+    before the second build.
 """
 
 from CIME.XML.standard_module_setup import *
+from CIME.case_setup import case_setup
 from CIME.SystemTests.system_tests_common import SystemTestsCommon
 
 logger = logging.getLogger(__name__)
 
 class SystemTestsCompareTwo(SystemTestsCommon):
 
+    # suffix used for saving original versions of files
+    ORIGINAL_SUFFIX = "original"
+
     def __init__(self,
                  case,
                  two_builds_for_sharedlib,
                  two_builds_for_model,
+                 runs_have_different_pe_settings,
                  run_two_suffix = 'test',
                  run_one_description = '',
                  run_two_description = ''):
@@ -58,6 +77,15 @@ class SystemTestsCompareTwo(SystemTestsCommon):
             two_builds_for_model (bool): Whether two separate builds are needed
                 for the model build (this should be False for tests that only
                 change runtime options)
+            runs_have_different_pe_settings (bool): Whether the two runs have
+                different PE settings. Typically, this will imply
+                two_builds_for_sharedlib and/or two_builds_for_model, but that
+                is not necessarily the case. If runs_have_different_pe_settings
+                is True, then the test is responsible for saving copies of the
+                env_mach_pes.xml file for each run, via save_xml_file, sometime
+                in the build phase. This will typically be done in
+                _build_one_setup and _build_two_setup, but in principle both
+                versions could be created and saved in _pre_build.
             run_two_suffix (str, optional): Suffix appended to files output by
                 the second run. Defaults to 'test'. This can be anything other
                 than 'base' (which is the suffix used for the first run).
@@ -68,6 +96,7 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         """
         SystemTestsCommon.__init__(self, case)
 
+        self._runs_have_different_pe_settings = runs_have_different_pe_settings
         self._two_builds_for_sharedlib = two_builds_for_sharedlib
         self._two_builds_for_model = two_builds_for_model
 
@@ -80,6 +109,10 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         self._run_two_suffix = run_two_suffix.rstrip()
         expect(self._run_two_suffix != self._run_one_suffix,
                "ERROR: Must have different suffixes for run one and run two")
+        expect(self._run_one_suffix != self.ORIGINAL_SUFFIX,
+               "ERROR: Run one suffix cannot be '%s'"%(self.ORIGINAL_SUFFIX))
+        expect(self._run_two_suffix != self.ORIGINAL_SUFFIX,
+               "ERROR: Run two suffix cannot be '%s'"%(self.ORIGINAL_SUFFIX))
 
         self._run_one_description = run_one_description
         self._run_two_description = run_two_description
@@ -106,6 +139,9 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         the run, such as setting CONTINUE_RUN to False. In principle, these settings
         could just be made once, but for robustness and communication purposes, this
         is executed before both run phases.
+
+        For tests with two separate builds, this does NOT need to move the
+        proper executable into place: that is done automatically by this base class.
         """
         raise NotImplementedError
 
@@ -115,6 +151,11 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         Sets up the run for the first phase of the two-phase test.
 
         All tests inheriting from this base class MUST implement this method.
+
+        For tests with two separate builds, this does NOT need to move the
+        proper executable into place: that is done automatically by this base
+        class. Similarly, staging the proper env_build and env_mach_pes files
+        are done automatically and do not need to be done in _run_one_setup.
         """
         raise NotImplementedError
 
@@ -123,6 +164,11 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         Sets up the run for the second phase of the two-phase test.
 
         All tests inheriting from this base class MUST implement this method.
+
+        For tests with two separate builds, this does NOT need to move the
+        proper executable into place: that is done automatically by this base
+        class. Similarly, staging the proper env_build and env_mach_pes files
+        are done automatically and do not need to be done in _run_two_setup.
         """
         raise NotImplementedError
 
@@ -141,20 +187,71 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         build, once for the model build, and potentially more times if the case
         is rebuilt. Thus, anything that is done in this method must be written
         so that it is robust to being called multiple times.
+
+        For a test with two_builds_for_sharedlib and/or two_builds_for_model
+        True, this is called once before both builds are done (NOT once for
+        build1 and once for build2).
         """
         pass
+
+    def _adjust_pes_for_run_one(self):
+        raise NotImplementedError(
+            "_adjust_pes_for_run_one must be implemented by tests with two PE layouts")
+
+    def _adjust_pes_for_run_two(self):
+        raise NotImplementedError(
+            "_adjust_pes_for_run_two must be implemented by tests with two PE layouts")
+
+    def _build_one_setup(self):
+        """
+        This method is used for tests that have either two_builds_for_sharedlib
+        and/or two_builds_for_model True. This method will be called immediately
+        before the first build.
+
+        This MUST be implemented by tests with two builds.
+
+        For a test that has (e.g.) two_builds_for_sharedlib True but
+        two_builds_for_model False, this is called before the first build for
+        the sharedlib, but NOT before the (common) model build.
+        """
+        raise NotImplementedError(
+            "_build_one_setup must be implemented by tests with two builds")
+
+    def _build_two_setup(self):
+        """
+        This method is used for tests that have either two_builds_for_sharedlib
+        and/or two_builds_for_model True. This method will be called immediately
+        before the second build.
+
+        This MUST be implemented by tests with two builds.
+
+        For a test that has (e.g.) two_builds_for_sharedlib True but
+        two_builds_for_model False, this is called before the second build for
+        the sharedlib, but NOT before the (common) model build.
+        """
+        raise NotImplementedError(
+            "_build_one_setup must be implemented by tests with two builds")
 
     # ========================================================================
     # Main public methods
     # ========================================================================
 
     def build(self, sharedlib_only=False, model_only=False):
+        self._pre_build_restore_or_save_xml_files()
+        if self._runs_have_different_pe_settings:
+            self._create_pe_files()
         self._pre_build()
 
         if self._needs_two_builds(sharedlib_only = sharedlib_only,
                                   model_only = model_only):
-            raise NotImplementedError('Two builds not yet implemented')
+            self._do_two_builds(sharedlib_only=sharedlib_only, model_only=model_only)
         else:
+            if self._runs_have_different_pe_settings:
+                # Two different PE settings, yet only one build.
+                #
+                # Arbitrarily use the first run's PE settings for the build
+                self._stage_saved_pes_file(suffix=self._run_one_suffix)
+                self._load_staged_xml_files(modified_pes=True)
             SystemTestsCommon.build(self, sharedlib_only=sharedlib_only, model_only=model_only)
 
     def run(self):
@@ -165,6 +262,12 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         # First run
         self._run_common_setup()
         self._run_one_setup()
+        if (self._runs_have_different_pe_settings):
+            self._stage_saved_pes_file(self._run_one_suffix)
+        if (self._has_two_executables()):
+            self._stage_saved_build_files(self._run_one_suffix)
+        if (self._runs_have_different_pe_settings or self._has_two_executables()):
+            self._load_staged_xml_files(modified_pes=self._runs_have_different_pe_settings)
         logger.info('Doing first run: ' + self._run_one_description)
         success = self._run(self._run_one_suffix)
         if success:
@@ -176,6 +279,12 @@ class SystemTestsCompareTwo(SystemTestsCommon):
         # Second run
         self._run_common_setup()
         self._run_two_setup()
+        if (self._runs_have_different_pe_settings):
+            self._stage_saved_pes_file(self._run_two_suffix)
+        if (self._has_two_executables()):
+            self._stage_saved_build_files(self._run_two_suffix)
+        if (self._runs_have_different_pe_settings or self._has_two_executables()):
+            self._load_staged_xml_files(modified_pes=self._runs_have_different_pe_settings)
         logger.info('Doing second run: ' + self._run_two_description)
         success = self._run(self._run_two_suffix)
         if success:
@@ -238,4 +347,103 @@ class SystemTestsCompareTwo(SystemTestsCommon):
             two_executables = False
 
         return two_executables
+
+    def _pre_build_restore_or_save_xml_files(self):
+        """
+        For tests that change either env_build or env_mach_pes: At the start of
+        each call to the build method, we restore the original versions of these
+        files, so that we're sure to start with the correct version even if we
+        are rebuilding a test that was killed part-way through the last build or
+        run.
+
+        If there are no saved files to restore, then we assume that the current
+        files in the case directory are the originals, and save them here
+        """
+
+        if self._runs_have_different_pe_settings:
+            env_mach_pes_restored = restore_or_save_xml_file(
+                caseroot = self._caseroot,
+                xml_file = 'env_mach_pes',
+                suffix = self.ORIGINAL_SUFFIX)
+        else:
+            env_mach_pes_restored = False
+
+        if self._has_two_executables():
+            env_build_restored = restore_or_save_xml_file(
+                caseroot = self._caseroot,
+                xml_file = 'env_build',
+                suffix = self.ORIGINAL_SUFFIX)
+        else:
+            env_build_restored = False
+
+        if (env_mach_pes_restored or env_build_restored):
+            # Here we do not run case_setup, even if we restored env_mach_pes:
+            # we'll end up doing that later for cases that use two different
+            # env_mach_pes files
+            self._case.read_xml()
+
+    def _create_pe_files(self):
+        # I'm doing the creation of pe files in its own step, rather than
+        # folding it in with the build1 and build2 setups, because (a) it makes
+        # it easier to think about how the different-pe-setting option plays
+        # together with the needs_two_builds option (specifically, if the former
+        # is True but the latter is False); (b) by doing this in its own step,
+        # we allow this shared infrastructure to handle the timing of saving the
+        # env_mach_pes files (and making sure that case.flush is called first),
+        # rather than requiring individual tests to do that.
+
+        if not saved_xml_file_exists(
+                caseroot = self._caseroot,
+                xml_file = 'env_mach_pes',
+                suffix = self._run_one_suffix):
+
+            self._adjust_pes_for_run_one()
+
+            # I think this flush is needed so that the changes in PEs are
+            # reflected on disk
+            self._case.flush()
+            save_xml_file(
+                caseroot = self._caseroot,
+                xml_file = 'env_mach_pes',
+                suffix = self._run_one_suffix)
+
+        if not saved_xml_file_exists(
+                caseroot = self._caseroot,
+                xml_file = 'env_mach_pes',
+                suffix = self._run_two_suffix):
+
+            self._adjust_pes_for_run_two()
+
+            # I think this flush is needed so that the changes in PEs are
+            # reflected on disk
+            self._case.flush()
+            save_xml_file(
+                caseroot = self._caseroot,
+                xml_file = 'env_mach_pes',
+                suffix = self._run_two_suffix)
+
+    def _do_two_builds(self, sharedlib_only, model_only):
+        # First build
+        if self._runs_have_different_pe_settings:
+            self._stage_saved_pes_file(suffix=self._run_one_suffix)
+            self._load_staged_xml_files(modified_pes=True)
+        self._build_one_setup()
+        SystemTestsCommon.build(self, sharedlib_only=sharedlib_only, model_only=model_only)
+        # FIXME(wjs, 2016-08-04) I'm not sure if it will work to save the build
+        # files at this point. e.g., if we're just in the sharedlib_only phase,
+        # then we wouldn't have an executable to save at the end of the
+        # build. And I'm not sure when is the right time to save the env_build
+        # file, given that we call the build twice (once with sharedlib_only and
+        # once with model_only).
+        self._save_build_files(suffix=self._run_one_suffix)
+
+        # Second build
+        if self._runs_have_different_pe_settings:
+            self._stage_saved_pes_file(suffix=self._run_two_suffix)
+            self._load_staged_xml_files(modified_pes=True)
+        self._build_two_setup()
+        SystemTestsCommon.build(self, sharedlib_only=sharedlib_only, model_only=model_only)
+        # FIXME(wjs, 2016-08-04) See fixme note above for first build: that
+        # applies here, too.
+        self._save_build_files(suffix=self._run_two_suffix)
 

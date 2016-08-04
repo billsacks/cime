@@ -15,6 +15,7 @@ class ERS(SystemTestsCompareTwo):
         SystemTestsCompareTwo.__init__(self, case,
                                        two_builds_for_sharedlib = False,
                                        two_builds_for_model = False,
+                                       runs_have_different_pe_settings = False,
                                        run_two_suffix = 'rest',
                                        run_one_description = 'initial run',
                                        run_two_description = 'restart test')
