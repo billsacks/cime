@@ -41,7 +41,10 @@ use shr_kind_mod, only: &
      cs => shr_kind_cs
 
 use shr_infnan_mod, only: &
-     isnan => shr_infnan_isnan
+     isnan => shr_infnan_isnan, &
+     qnan  => shr_infnan_qnan, &
+     assignment(=)
+
 
 implicit none
 private
@@ -104,18 +107,28 @@ pure function r4ToString(input, format_string) result(string)
   character(len=*), intent(in), optional :: format_string
   character(len=:), allocatable :: string
 
+  real(r4) :: my_input
   character(len=cs) :: buffer
 
-  if (present(format_string)) then
-     write(buffer, format_string) input
+  if (isnan(input)) then
+     ! We can get a floating point exception if we try to write a signaling NaN, so
+     ! ensure that use a quiet NaN regardless of whether the original input is quiet or
+     ! signaling.
+     my_input = qnan
   else
-     write(buffer, '(ES15.8 E2)') input
+     my_input = input
+  end if
+
+  if (present(format_string)) then
+     write(buffer, format_string) my_input
+  else
+     write(buffer, '(ES15.8 E2)') my_input
      buffer = adjustl(buffer)
      ! Deal with the fact that the "+" sign is optional by simply adding it if
      ! it is not present, so that the default format is standardized across
      ! compilers.
      ! Assumes that compilers do not treat the sign bit on NaN values specially.
-     if (.not. isnan(input) .and. all(buffer(1:1) /= ["-", "+"])) then
+     if (.not. isnan(my_input) .and. all(buffer(1:1) /= ["-", "+"])) then
         buffer = "+" // trim(buffer)
      end if
   end if
@@ -129,18 +142,28 @@ pure function r8ToString(input, format_string) result(string)
   character(len=*), intent(in), optional :: format_string
   character(len=:), allocatable :: string
 
+  real(r8) :: my_input
   character(len=cs) :: buffer
 
-  if (present(format_string)) then
-     write(buffer, format_string) input
+  if (isnan(input)) then
+     ! We can get a floating point exception if we try to write a signaling NaN, so
+     ! ensure that use a quiet NaN regardless of whether the original input is quiet or
+     ! signaling.
+     my_input = qnan
   else
-     write(buffer, '(ES24.16 E3)') input
+     my_input = input
+  end if
+
+  if (present(format_string)) then
+     write(buffer, format_string) my_input
+  else
+     write(buffer, '(ES24.16 E3)') my_input
      buffer = adjustl(buffer)
      ! Deal with the fact that the "+" sign is optional by simply adding it if
      ! it is not present, so that the default format is standardized across
      ! compilers.
      ! Assumes that compilers do not treat the sign bit on NaN values specially.
-     if (.not. isnan(input) .and. all(buffer(1:1) /= ["-", "+"])) then
+     if (.not. isnan(my_input) .and. all(buffer(1:1) /= ["-", "+"])) then
         buffer = "+" // trim(buffer)
      end if
   end if
