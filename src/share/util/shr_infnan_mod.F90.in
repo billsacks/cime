@@ -221,10 +221,25 @@ end function shr_infnan_isneginf_{TYPE}
 ! NaN testing on gfortran.
 ! TYPE double,real
 elemental function shr_infnan_isnan_{TYPE}(x) result(is_nan)
+  use, intrinsic :: ieee_exceptions, only : ieee_invalid, ieee_get_halting_mode, ieee_set_halting_mode
   {VTYPE}, intent(in) :: x
   logical :: is_nan
+  logical :: invalid_halts
+
+  ! If the code has been compiled with -ffpe-trap=invalid, then gfortran would raise a
+  ! floating point exception in the isnan call (at least in gfortran 7.1.0 and earlier).
+  ! To avoid this, we temporarily turn off halting for ieee_invalid.
+  call ieee_get_halting_mode(ieee_invalid, invalid_halts)
+  if (invalid_halts) then
+     call ieee_set_halting_mode(ieee_invalid, .false.)
+  end if
 
   is_nan = isnan(x)
+
+  ! Restore the original halting mode
+  if (invalid_halts) then
+     call ieee_set_halting_mode(ieee_invalid, .true.)
+  end if
 
 end function shr_infnan_isnan_{TYPE}
 ! End GNU section.
