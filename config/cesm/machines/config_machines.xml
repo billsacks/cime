@@ -242,12 +242,12 @@
       <cmd_path lang="csh">module</cmd_path>
       <modules>
 	<command name="purge"/>
-	<command name="load">ncarenv/1.0</command>
+	<command name="load">ncarenv/1.2</command>
       </modules>
       <modules compiler="intel">
 	<command name="load">intel/17.0.1</command>
-	<command name="load">mkl</command>
 	<command name="load">esmf_libs</command>
+	<command name="load">mkl</command>
       </modules>
       <modules compiler="intel" mpilib="!mpi-serial" debug="true">
 	<command name="load">esmf-7.0.0-defio-mpi-g</command>
@@ -275,7 +275,7 @@
 	<command name="load">netcdf/4.4.1.1</command>
       </modules>
       <modules>
-	<command name="load">ncarcompilers/0.3.5</command>
+	<command name="load">ncarcompilers/0.4.1</command>
       </modules>
       <modules mpilib="mpi-serial">
 	<command name="load">netcdf/4.4.1.1</command>
@@ -283,6 +283,7 @@
     </module_system>
     <environment_variables>
       <env name="OMP_STACKSIZE">256M</env>
+      <env name="TMPDIR">/glade/scratch/$USER</env>
       <env name="MPI_TYPE_DEPTH">16</env>
     </environment_variables>
     <environment_variables unit_testing="true">
@@ -464,7 +465,7 @@
       </modules>
       <modules>
 	<command name="load">cray-memkind</command>
-	<command name="load">papi/5.4.3.2</command>
+	<command name="load">papi/5.4.1.3</command>
 	<command name="swap">craype craype/2.5.7</command>
       </modules>
       <modules>
@@ -793,7 +794,7 @@
 
       <modules compiler="intel">
 	<command name="load">PrgEnv-intel</command>
-	<command name="switch">intel intel/16.0.2.181</command>
+	<command name="switch">intel intel/16.0.3.210</command>
 	<command name="rm">cray-libsci</command>
 	<command name="use">/global/project/projectdirs/ccsm1/modulefiles/edison</command>
       </modules>
@@ -806,21 +807,20 @@
       <modules compiler="cray">
 	<command name="load">PrgEnv-cray</command>
 	<command name="switch">cce cce/8.5.1</command>
+	<command name="switch">cray-libsci/16.07.1</command>
       </modules>
       <modules compiler="gnu">
 	<command name="load">PrgEnv-gnu</command>
 	<command name="switch">gcc gcc/6.1.0</command>
+	<command name="switch">cray-libsci/16.07.1</command>
       </modules>
       <modules>
 	<command name="load">papi/5.4.3.2</command>
 	<command name="swap">craype craype/2.5.5</command>
 	<command name="load">craype-ivybridge</command>
       </modules>
-      <modules compiler="!intel">
-	<command name="switch">cray-libsci/16.07.1</command>
-      </modules>
       <modules>
-	<command name="load">cray-mpich/7.4.1</command>
+	<command name="load">cray-mpich/7.6.0</command>
       </modules>
       <modules mpilib="mpi-serial">
 	<command name="load">cray-hdf5/1.8.16</command>
@@ -830,10 +830,6 @@
 	<command name="load">cray-netcdf-hdf5parallel/4.4.0</command>
 	<command name="load">cray-hdf5-parallel/1.8.16</command>
 	<command name="load">cray-parallel-netcdf/1.7.0</command>
-      </modules>
-      <modules>
-	<command name="load">perl/5.20.0</command>
-	<command name="load">cmake/3.3.2</command>
       </modules>
     </module_system>
 
@@ -848,7 +844,7 @@
     <NODENAME_REGEX>^hob.*</NODENAME_REGEX>
     <OS>LINUX</OS>
     <COMPILERS>intel,pgi,nag,gnu</COMPILERS>
-    <MPILIBS>mvapich2</MPILIBS>
+    <MPILIBS>mvapich2,openmpi</MPILIBS>
     <CIME_OUTPUT_ROOT>/scratch/cluster/$USER</CIME_OUTPUT_ROOT>
     <DIN_LOC_ROOT>/fs/cgd/csm/inputdata</DIN_LOC_ROOT>
     <DIN_LOC_ROOT_CLMFORC>/project/tss</DIN_LOC_ROOT_CLMFORC>
@@ -860,11 +856,17 @@
     <BATCH_SYSTEM>pbs</BATCH_SYSTEM>
     <SUPPORTED_BY> cseg </SUPPORTED_BY>
     <MAX_TASKS_PER_NODE>48</MAX_TASKS_PER_NODE>
-    <PES_PER_NODE>24</PES_PER_NODE>
-    <mpirun mpilib="default">
+    <PES_PER_NODE>48</PES_PER_NODE>
+    <mpirun mpilib="mvapich2">
       <executable>mpiexec</executable>
       <arguments>
 	<arg name="machine_file">--machinefile $ENV{PBS_NODEFILE}</arg>
+	<arg name="num_tasks"> -n $TOTALPES </arg>
+      </arguments>
+    </mpirun>
+    <mpirun mpilib="openmpi">
+      <executable>mpiexec</executable>
+      <arguments>
 	<arg name="num_tasks"> -n $TOTALPES </arg>
       </arguments>
     </mpirun>
@@ -895,8 +897,9 @@
       <modules compiler="nag">
 	<command name="load">compiler/nag/6.1</command>
       </modules>
-      <modules compiler="gnu">
-	<command name="load">compiler/gnu/4.8.5</command>
+      <modules compiler="gnu" mpilib="openmpi">
+	<command name="load">compiler/gnu/5.4.0</command>
+	<command name="load">  tool/parallel-netcdf/1.8.1/gnu-5.4.0/openmpi  </command>
       </modules>
     </module_system>
     <environment_variables>
@@ -1237,11 +1240,65 @@
     </environment_variables>
   </machine>
 
+  <machine MACH="pleiades-bro">
+    <DESC>NASA/AMES Linux Cluster, Linux (ia64), 2.4 GHz Broadwell Intel Xeon E5-2680v4 processors, 28 pes/node (two 14-core processors) and 128 GB of memory/node, batch system is PBS</DESC>
+    <OS>LINUX</OS>
+    <COMPILERS>intel</COMPILERS>
+    <MPILIBS>mpt</MPILIBS>
+    <CIME_OUTPUT_ROOT>/nobackup/$USER</CIME_OUTPUT_ROOT>
+    <DIN_LOC_ROOT>/nobackup/mjmills2/ccsmdata/inputdata</DIN_LOC_ROOT>
+    <DIN_LOC_ROOT_CLMFORC>/nobackup/mjmills2/ccsmdata/inputdata/atm/datm7</DIN_LOC_ROOT_CLMFORC>
+    <DOUT_S_ROOT>/nobackup/$USER/archive/$CASE</DOUT_S_ROOT>
+    <BASELINE_ROOT>/nobackup/fvitt/cesm_baselines</BASELINE_ROOT>
+    <CCSM_CPRNC>/u/fvitt/bin/cprnc</CCSM_CPRNC>
+    <GMAKE_J>8</GMAKE_J>
+    <BATCH_SYSTEM>pbs</BATCH_SYSTEM>
+    <SUPPORTED_BY>fvitt -at- ucar.edu</SUPPORTED_BY>
+    <MAX_TASKS_PER_NODE>28</MAX_TASKS_PER_NODE>
+    <PES_PER_NODE>28</PES_PER_NODE>
+    <PROJECT_REQUIRED>TRUE</PROJECT_REQUIRED>
+    <mpirun mpilib="default">
+      <executable>mpiexec_mpt</executable>
+      <arguments>
+	<arg name="num_tasks">-n $TOTALPES</arg>
+      </arguments>
+    </mpirun>
+    <module_system type="module">
+      <init_path lang="perl">/usr/share/Modules/3.2.10/init/perl.pm</init_path>
+      <init_path lang="sh">/usr/share/Modules/3.2.10/init/sh</init_path>
+      <init_path lang="csh">/usr/share/Modules/3.2.10/init/csh</init_path>
+      <init_path lang="python">/usr/share/Modules/3.2.10/init/python.py</init_path>
+      <cmd_path lang="perl">/usr/bin/modulecmd perl</cmd_path>
+      <cmd_path lang="python">/usr/bin/modulecmd python</cmd_path>
+      <cmd_path lang="csh">module</cmd_path>
+      <cmd_path lang="sh">module</cmd_path>
+      <modules>
+	<command name="purge"/>
+	<command name="load">nas</command>
+	<command name="load">pkgsrc</command>
+        <command name="load">comp-intel/2016.2.181</command>
+        <command name="load">mpi-sgi/mpt.2.15r20</command>
+        <command name="load">szip/2.1.1</command>
+        <command name="load">hdf4/4.2.12</command>
+        <command name="load">hdf5/1.8.18_mpt</command>
+        <command name="load">netcdf/4.4.1.1_mpt</command>
+      </modules>
+    </module_system>
+    <environment_variables>
+      <env name="MPI_GROUP_MAX">1024</env>
+      <env name="MPI_TYPE_MAX">100000</env>
+      <env name="MPI_TYPE_DEPTH">16</env>
+      <env name="KMP_AFFINITY">noverbose,disabled</env>
+      <env name="KMP_SCHEDULE">static,balanced</env>
+      <env name="OMP_STACKSIZE">256M</env>
+    </environment_variables>
+  </machine>
+
   <machine MACH="pleiades-has">
     <DESC>NASA/AMES Linux Cluster, Linux (ia64), 2.5 GHz Haswell Intel Xeon E5-2680v3 processors, 24 pes/node (two 12-core processors) and 128 GB of memory/node, batch system is PBS</DESC>
     <OS>LINUX</OS>
     <COMPILERS>intel</COMPILERS>
-    <MPILIBS>mpich</MPILIBS>
+    <MPILIBS>mpt</MPILIBS>
     <CIME_OUTPUT_ROOT>/nobackup/$USER</CIME_OUTPUT_ROOT>
     <DIN_LOC_ROOT>/nobackup/mjmills2/ccsmdata/inputdata</DIN_LOC_ROOT>
     <DIN_LOC_ROOT_CLMFORC>/nobackup/mjmills2/ccsmdata/inputdata/atm/datm7</DIN_LOC_ROOT_CLMFORC>
@@ -1264,74 +1321,30 @@
       <init_path lang="perl">/usr/share/Modules/3.2.10/init/perl.pm</init_path>
       <init_path lang="sh">/usr/share/Modules/3.2.10/init/sh</init_path>
       <init_path lang="csh">/usr/share/Modules/3.2.10/init/csh</init_path>
+      <init_path lang="python">/usr/share/Modules/3.2.10/init/python.py</init_path>
       <cmd_path lang="perl">/usr/bin/modulecmd perl</cmd_path>
+      <cmd_path lang="python">/usr/bin/modulecmd python</cmd_path>
       <cmd_path lang="csh">module</cmd_path>
       <cmd_path lang="sh">module</cmd_path>
       <modules>
 	<command name="purge"/>
-	<command name="load">perl/5.20.1</command>
-	<command name="load">comp-intel/2015.0.090</command>
-	<command name="load">mpi-sgi/mpt.2.11r13</command>
-	<command name="load">netcdf/4.1.3/intel/mpt</command>
-	<command name="load">cmake/2.8.12.1</command>
 	<command name="load">nas</command>
+	<command name="load">pkgsrc</command>
+	<command name="load">comp-intel/2016.2.181</command>
+        <command name="load">mpi-sgi/mpt.2.15r20</command>
+        <command name="load">szip/2.1.1</command>
+        <command name="load">hdf4/4.2.12</command>
+        <command name="load">hdf5/1.8.18_mpt</command>
+        <command name="load">netcdf/4.4.1.1_mpt</command>
       </modules>
     </module_system>
     <environment_variables>
       <env name="MPI_GROUP_MAX">1024</env>
       <env name="MPI_TYPE_MAX">100000</env>
+      <env name="MPI_TYPE_DEPTH">16</env>
       <env name="KMP_AFFINITY">noverbose,disabled</env>
       <env name="KMP_SCHEDULE">static,balanced</env>
-      <env name="OMP_STACKSIZE">64M</env>
-    </environment_variables>
-  </machine>
-
-  <machine MACH="pleiades-wes">
-    <DESC>NASA/AMES Linux Cluster, Linux (ia64), Altix ICE, 2.93 GHz Westmere processors, 12 pes/node and 24 GB of memory, batch system is PBS</DESC>
-    <OS>LINUX</OS>
-    <COMPILERS>intel</COMPILERS>
-    <MPILIBS>mpich</MPILIBS>
-    <CIME_OUTPUT_ROOT>/nobackup/$USER</CIME_OUTPUT_ROOT>
-    <DIN_LOC_ROOT>/nobackup/mjmills2/ccsmdata/inputdata</DIN_LOC_ROOT>
-    <DIN_LOC_ROOT_CLMFORC>/nobackup/mjmills2/ccsmdata/inputdata/atm/datm7</DIN_LOC_ROOT_CLMFORC>
-    <DOUT_S_ROOT>/nobackup/$USER/archive/$CASE</DOUT_S_ROOT>
-    <BASELINE_ROOT>/nobackup/fvitt/cesm_baselines</BASELINE_ROOT>
-    <CCSM_CPRNC>/u/fvitt/bin/cprnc</CCSM_CPRNC>
-    <GMAKE_J>8</GMAKE_J>
-    <BATCH_SYSTEM>pbs</BATCH_SYSTEM>
-    <SUPPORTED_BY>fvitt -at- ucar.edu</SUPPORTED_BY>
-    <MAX_TASKS_PER_NODE>12</MAX_TASKS_PER_NODE>
-    <PES_PER_NODE>12</PES_PER_NODE>
-    <PROJECT_REQUIRED>TRUE</PROJECT_REQUIRED>
-    <mpirun mpilib="default">
-      <executable>mpiexec_mpt</executable>
-      <arguments>
-	<arg name="num_tasks">-n $TOTALPES</arg>
-      </arguments>
-    </mpirun>
-    <module_system type="module">
-      <init_path lang="perl">/usr/share/Modules/3.2.10/init/perl.pm</init_path>
-      <init_path lang="sh">/usr/share/Modules/3.2.10/init/sh</init_path>
-      <init_path lang="csh">/usr/share/Modules/3.2.10/init/csh</init_path>
-      <cmd_path lang="perl">/usr/bin/modulecmd perl</cmd_path>
-      <cmd_path lang="csh">module</cmd_path>
-      <cmd_path lang="sh">module</cmd_path>
-      <modules>
-	<command name="purge"/>
-	<command name="load">perl/5.20.1</command>
-	<command name="load">comp-intel/2015.0.090</command>
-	<command name="load">mpi-sgi/mpt.2.11r13</command>
-	<command name="load">netcdf/4.1.3/intel/mpt</command>
-	<command name="load">cmake/2.8.12.1</command>
-	<command name="load">nas</command>
-      </modules>
-    </module_system>
-    <environment_variables>
-      <env name="MPI_GROUP_MAX">1024</env>
-      <env name="MPI_TYPE_MAX">100000</env>
-      <env name="KMP_AFFINITY">noverbose,disabled</env>
-      <env name="KMP_SCHEDULE">static,balanced</env>
-      <env name="OMP_STACKSIZE">64M</env>
+      <env name="OMP_STACKSIZE">256M</env>
     </environment_variables>
   </machine>
 
@@ -1339,7 +1352,7 @@
     <DESC>NASA/AMES Linux Cluster, Linux (ia64), Altix ICE, 2.6 GHz Sandy Bridge processors, 16 cores/node and 32 GB of memory, batch system is PBS</DESC>
     <OS>LINUX</OS>
     <COMPILERS>intel</COMPILERS>
-    <MPILIBS>mpich</MPILIBS>
+    <MPILIBS>mpt</MPILIBS>
     <CIME_OUTPUT_ROOT>/nobackup/$USER</CIME_OUTPUT_ROOT>
     <DIN_LOC_ROOT>/nobackup/mjmills2/ccsmdata/inputdata</DIN_LOC_ROOT>
     <DIN_LOC_ROOT_CLMFORC>/nobackup/mjmills2/ccsmdata/inputdata/atm/datm7</DIN_LOC_ROOT_CLMFORC>
@@ -1362,25 +1375,30 @@
       <init_path lang="perl">/usr/share/Modules/3.2.10/init/perl.pm</init_path>
       <init_path lang="sh">/usr/share/Modules/3.2.10/init/sh</init_path>
       <init_path lang="csh">/usr/share/Modules/3.2.10/init/csh</init_path>
+      <init_path lang="python">/usr/share/Modules/3.2.10/init/python.py</init_path>
       <cmd_path lang="perl">/usr/bin/modulecmd perl</cmd_path>
+      <cmd_path lang="python">/usr/bin/modulecmd python</cmd_path>
       <cmd_path lang="csh">module</cmd_path>
       <cmd_path lang="sh">module</cmd_path>
       <modules>
 	<command name="purge"/>
-	<command name="load">perl/5.20.1</command>
-	<command name="load">comp-intel/2015.0.090</command>
-	<command name="load">mpi-sgi/mpt.2.11r13</command>
-	<command name="load">netcdf/4.1.3/intel/mpt</command>
-	<command name="load">cmake/2.8.12.1</command>
 	<command name="load">nas</command>
+	<command name="load">pkgsrc</command>
+	<command name="load">comp-intel/2016.2.181</command>
+	<command name="load">mpi-sgi/mpt.2.15r20</command>
+        <command name="load">szip/2.1.1</command>
+        <command name="load">hdf4/4.2.12</command>
+        <command name="load">hdf5/1.8.18_mpt</command>
+ 	<command name="load">netcdf/4.4.1.1_mpt</command>
       </modules>
     </module_system>
     <environment_variables>
       <env name="MPI_GROUP_MAX">1024</env>
       <env name="MPI_TYPE_MAX">100000</env>
+      <env name="MPI_TYPE_DEPTH">16</env>
       <env name="KMP_AFFINITY">noverbose,disabled</env>
       <env name="KMP_SCHEDULE">static,balanced</env>
-      <env name="OMP_STACKSIZE">64M</env>
+      <env name="OMP_STACKSIZE">256M</env>
     </environment_variables>
   </machine>
 
@@ -1411,25 +1429,30 @@
       <init_path lang="perl">/usr/share/Modules/3.2.10/init/perl.pm</init_path>
       <init_path lang="sh">/usr/share/Modules/3.2.10/init/sh</init_path>
       <init_path lang="csh">/usr/share/Modules/3.2.10/init/csh</init_path>
+      <init_path lang="python">/usr/share/Modules/3.2.10/init/python.py</init_path>
       <cmd_path lang="perl">/usr/bin/modulecmd perl</cmd_path>
+      <cmd_path lang="python">/usr/bin/modulecmd python</cmd_path>
       <cmd_path lang="csh">module</cmd_path>
       <cmd_path lang="sh">module</cmd_path>
       <modules>
 	<command name="purge"/>
-	<command name="load">perl/5.20.1</command>
-	<command name="load">comp-intel/2015.0.090</command>
-	<command name="load">mpi-sgi/mpt.2.11r13</command>
-	<command name="load">netcdf/4.1.3/intel/mpt</command>
-	<command name="load">cmake/2.8.12.1</command>
 	<command name="load">nas</command>
+	<command name="load">pkgsrc</command>
+	<command name="load">comp-intel/2016.2.181</command>
+	<command name="load">mpi-sgi/mpt.2.15r20</command>
+        <command name="load">szip/2.1.1</command>
+        <command name="load">hdf4/4.2.12</command>
+        <command name="load">hdf5/1.8.18_mpt</command>
+ 	<command name="load">netcdf/4.4.1.1_mpt</command>
       </modules>
     </module_system>
     <environment_variables>
       <env name="MPI_GROUP_MAX">1024</env>
       <env name="MPI_TYPE_MAX">100000</env>
+      <env name="MPI_TYPE_DEPTH">16</env>
       <env name="KMP_AFFINITY">noverbose,disabled</env>
       <env name="KMP_SCHEDULE">static,balanced</env>
-      <env name="OMP_STACKSIZE">64M</env>
+      <env name="OMP_STACKSIZE">256M</env>
     </environment_variables>
   </machine>
 
@@ -1535,7 +1558,7 @@
     <OS>LINUX</OS>
     <COMPILERS>intel</COMPILERS>
     <MPILIBS>mvapich2,impi</MPILIBS>
-    <CIME_OUTPUT_ROOT>$SCRATCH</CIME_OUTPUT_ROOT>
+    <CIME_OUTPUT_ROOT>$ENV{SCRATCH}</CIME_OUTPUT_ROOT>
     <DIN_LOC_ROOT>/scratch/projects/xsede/CESM/inputdata</DIN_LOC_ROOT>
     <DIN_LOC_ROOT_CLMFORC>/scratch/projects/xsede/CESM/inputdata/lmwg</DIN_LOC_ROOT_CLMFORC>
     <DOUT_S_ROOT>$WORK/archive/$CASE</DOUT_S_ROOT>
@@ -1587,8 +1610,6 @@
     </module_system>
     <environment_variables>
       <env name="OMP_STACKSIZE">256M</env>
-      <env name="NETCDF_PATH">$TACC_NETCDF_DIR</env>
-      <env name="PNETCDF_PATH">$TACC_PNETCDF_DIR</env>
       <env name="PERL5LIB">/scratch/projects/xsede/CESM/perl5/lib/perl5/x86_64-linux-thread-multi:/scratch/projects/xsede/CESM/perl5/lib/perl5</env>
      </environment_variables>
   </machine>
@@ -1670,10 +1691,24 @@
       <modules compiler="gnu">
 	<command name="load">gnu/5.2.0</command>
       </modules>
-      <modules mpilib="mpi-serial">
+      <modules mpilib="mpi-serial" compiler="gnu">
 	<command name="load">netcdf/4.3.3.1</command>
       </modules>
-      <modules mpilib="!mpi-serial">
+      <modules mpilib="!mpi-serial" compiler="gnu">
+	<command name="load">netcdf-mpi/4.3.3.1</command>
+	<command name="load">pnetcdf/1.6.1</command>
+      </modules>
+      <modules mpilib="mpi-serial" compiler="pgi">
+	<command name="load">netcdf/4.3.3.1</command>
+      </modules>
+      <modules mpilib="!mpi-serial" compiler="pgi">
+	<command name="load">netcdf-mpi/4.3.3.1</command>
+	<command name="load">pnetcdf/1.6.1</command>
+      </modules>
+      <modules mpilib="mpi-serial" compiler="intel">
+	<command name="load">netcdf/4.3.3.1</command>
+      </modules>
+      <modules mpilib="!mpi-serial" compiler="intel">
 	<command name="load">netcdf-mpi/4.3.3.1</command>
 	<command name="load">pnetcdf/1.6.1</command>
       </modules>

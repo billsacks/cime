@@ -1,14 +1,15 @@
 """
 Interface to the env_batch.xml file.  This class inherits from EnvBase
 """
-import stat
-import re
-import math
+
 from CIME.XML.standard_module_setup import *
 from CIME.utils import format_time
 from CIME.XML.env_base import EnvBase
 from CIME.utils import transform_vars, get_cime_root, convert_to_seconds
+
 from copy import deepcopy
+from collections import OrderedDict
+import stat, re, math
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +320,9 @@ class EnvBatch(EnvBase):
 
         return submitargs
 
-    def submit_jobs(self, case, no_batch=False, job=None, skip_pnl=False, batch_args=None, dry_run=False):
+    def submit_jobs(self, case, no_batch=False, job=None, skip_pnl=False,
+                    mail_user=None, mail_type='never', batch_args=None,
+                    dry_run=False):
         alljobs = self.get_jobs()
         startindex = 0
         jobs = []
@@ -348,7 +351,7 @@ class EnvBatch(EnvBase):
             if self.batchtype == "cobalt":
                 break
 
-        depid = {}
+        depid = OrderedDict()
         jobcmds = []
 
         for job, dependency in jobs:
@@ -361,7 +364,7 @@ class EnvBatch(EnvBase):
                 jobid = self.prereq_jobid
             for dep in deps:
                 if dep in depid.keys() and depid[dep] is not None:
-                    jobid += " "+str(depid[dep])
+                    jobid += " " + str(depid[dep])
 #TODO: doubt these will be used
 #               elif dep == "and":
 #                   jobid += " && "
@@ -374,7 +377,13 @@ class EnvBatch(EnvBase):
                 jobid = None
 
             logger.warn("job is {}".format(job))
-            result = self._submit_single_job(case, job, jobid, no_batch=no_batch, skip_pnl=skip_pnl, batch_args=batch_args, dry_run=dry_run)
+            result = self._submit_single_job(case, job, jobid,
+                                             no_batch=no_batch,
+                                             skip_pnl=skip_pnl,
+                                             mail_user=mail_user,
+                                             mail_type=mail_type,
+                                             batch_args=batch_args,
+                                             dry_run=dry_run)
             batch_job_id = str(alljobs.index(job)) if dry_run else result
             depid[job] = batch_job_id
             jobcmds.append( (job, result) )
@@ -384,9 +393,11 @@ class EnvBatch(EnvBase):
         if dry_run:
             return jobcmds
         else:
-            return sorted(list(depid.values()))
+            return depid
 
-    def _submit_single_job(self, case, job, depid=None, no_batch=False, skip_pnl=False, batch_args=None, dry_run=False):
+    def _submit_single_job(self, case, job, depid=None, no_batch=False,
+                           skip_pnl=False, mail_user=None, mail_type='never',
+                           batch_args=None, dry_run=False):
         logger.warn("Submit job {}".format(job))
         batch_system = self.get_value("BATCH_SYSTEM", subgroup=None)
         if batch_system is None or batch_system == "none" or no_batch:
@@ -416,6 +427,15 @@ class EnvBatch(EnvBase):
         if batch_args is not None:
             submitargs += " " + batch_args
 
+        if mail_user is not None:
+            mail_user_flag = self.get_value('batch_mail_flag', subgroup=None)
+            if mail_user_flag is not None:
+                submitargs += " " + mail_user_flag + " " + mail_user
+        if 'never' not in mail_type:
+            mail_type_flag, mail_type = self.get_batch_mail_type(mail_type)
+            if mail_type_flag is not None:
+                submitargs += " " + mail_type_flag + " " + mail_type
+
         batchsubmit = self.get_value("batch_submit", subgroup=None)
         expect(batchsubmit is not None,
                "Unable to determine the correct command for batch submission.")
@@ -436,6 +456,14 @@ class EnvBatch(EnvBase):
             jobid = self.get_job_id(output)
             logger.info("Submitted job id is {}".format(jobid))
             return jobid
+
+    def get_batch_mail_type(self, mail_type='never'):
+        mail_type_flag = self.get_value("batch_mail_type_flag", subgroup=None)
+        raw =  self.get_value("batch_mail_type", subgroup=None)
+        mail_types = [item.strip() for item in raw.split(",")] # pylint: disable=no-member
+        idx = ["never", "all", "begin", "end", "fail"].index(mail_type)
+
+        return mail_type_flag, mail_types[idx]
 
     def get_batch_system_type(self):
         nodes = self.get_nodes("batch_system")
@@ -532,3 +560,20 @@ class EnvBatch(EnvBase):
         else:
             nodes =  EnvBase.get_nodes(self, nodename, attributes, root, xpath)
         return nodes
+
+    def get_status(self, jobid):
+        batch_query = self.get_optional_node("batch_query")
+        if batch_query is None:
+            logger.warning("Batch queries not supported on this platform")
+        else:
+            cmd = batch_query.text + " "
+            if "per_job_arg" in batch_query.attrib:
+                cmd += batch_query.get("per_job_arg") + " "
+
+            cmd += jobid
+
+            status, out, err = run_cmd(cmd)
+            if status != 0:
+                logger.warning("Batch query command '{}' failed with error '{}'".format(cmd, err))
+            else:
+                return out.strip()

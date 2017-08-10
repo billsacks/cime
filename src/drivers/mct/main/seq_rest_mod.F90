@@ -317,7 +317,6 @@ subroutine seq_rest_write(EClock_d, seq_SyncClock, infodata, &
    integer(IN)   :: ivar             ! integer variable
    real(r8)      :: rvar             ! real variable
    logical       :: whead,wdata      ! flags header/data writing
-   logical       :: cdf64            ! true => create netCDF with 64 bit addressing
    logical       :: cplroot          ! root pe on cpl id
    integer(IN)   :: iun              ! unit number
    character(CL) :: rest_file        ! Local path to restart filename
@@ -362,7 +361,6 @@ subroutine seq_rest_write(EClock_d, seq_SyncClock, infodata, &
         glc_prognostic=glc_prognostic,      &
         wav_prognostic=wav_prognostic,      &
         esp_prognostic=esp_prognostic,      &
-        cpl_cdf64=cdf64,            &
         case_name=case_name)
 
    ! Write out infodata and time manager data to restart file
@@ -406,7 +404,7 @@ subroutine seq_rest_write(EClock_d, seq_SyncClock, infodata, &
       endif
 
       call shr_mpi_bcast(rest_file,mpicom_CPLID)
-      call seq_io_wopen(rest_file,clobber=.true.,cdf64=cdf64)
+      call seq_io_wopen(rest_file,clobber=.true.)
 
       ! loop twice (for perf), first time write header, second time write data
       do fk = 1,2
