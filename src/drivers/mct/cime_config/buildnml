@@ -178,6 +178,7 @@ def _create_drv_namelists(case, infile, confdir, nmlgen, files):
     #--------------------------------
     # (2) Write out seq_map.rc file
     #--------------------------------
+
     seq_maps_file = os.path.join(confdir, "seq_maps.rc")
     nmlgen.write_seq_maps(seq_maps_file)
 
